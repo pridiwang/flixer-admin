@@ -1,0 +1,220 @@
+<html><head>
+<title>Admin</title>
+<link rel=stylesheet href=https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css />
+<link rel=stylesheet href=https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css />
+
+<script src=https://code.jquery.com/jquery-1.12.4.min.js ></script>
+<script src=https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js ></script>
+<script src=//cdn.datatables.net/1.10.15/js/jquery.dataTables.min.js ></script>
+</head>
+<body><div class='container ' >
+
+<?php
+session_start();
+ini_set('display_errors',On);
+error_reporting(E_ERROR);
+//error_reporting(E_ALL);
+$rnd=rand(0,9999);
+print "<link rel=stylesheet href=admin.css?$rnd />";
+extract($_GET);
+require "include.php";
+
+if($action=='log-out'){
+	session_destroy();
+	unset($_SESSION);
+}
+if($action=='log-in'){
+	extract($_POST);
+	$q="select name from user where email='$email' and password=password('$password') ";
+	$dr=qdr($q); //print $q;
+	if($dr){
+		$_SESSION[user]=$dr[name];
+	}else{
+		$msg=" user / password not correct";
+	}
+}
+if(!$_SESSION[user]){
+	print "<center><form action=?action=log-in method=post class='col-md-6' style=margin:10%;>
+	<img src=img/logo_main.png>
+	<h3>Admin Login</h3>
+	$msg
+	<input type=email name=email placeholder=email class=form-control required >
+	<br><input type=password name=password placeholder=password class=form-control required>
+	<br><button class='btn btn-primary'>Login</button>
+	</form>";
+	exit;
+}
+
+$alist=array('title'=>'Title','category'=>'Catgory','user'=>'User','user_token'=>'Token','user_log'=>'Log');
+print "<div class=menu><img src=img/app_icon.png height=30> Flixer Admin : ";
+while(list($a,$t)=each($alist)){ print "<a href=?action=browse&tb=$a>$t</a> | ";}
+print "<span class='pull-right' >User: $_SESSION[user] <a href=?action=log-out>Log-out</a></span> </div>";
+
+//gen ep data and smil file
+if($action=='genTimelineThumbnail'){
+	$q="select t2.code,t1.episode from episode as t1,title as t2 where t2.id=t1.title and t1.title='$title' ";
+	$dt=qdt($q);print $q;
+	
+	while(list(,$dr)=each($dt)){
+		$sdir="/data/dex/".$dr[code];
+		$tdir="/home/flixer/public_html/api/dex/".$dr[code];
+		if(!file_exists($tdir)) mkdir($tdir);
+		$tdir="/home/flixer/public_html/api/dex/$dr[code]/thumb";
+		if(!file_exists($tdir)){
+			if(mkdir($tdir)) print " $tdir mkdir ";
+			else print "$tdir failed mkdir ".error_get_last()[message];
+		} 
+		$tdir.="/".$dr[episode];
+		if(!file_exists($tdir)) mkdir($tdir);
+		print "<br>sdir $sdir > tdir  $tdir \n";
+		$ex="/usr/bin/ffmpeg -i ".$sdir.'/'.$dr[code]."_".$dr[episode]."_480_jp.mp4 -vf fps=1,scale=160:120 $tdir/thumb%04d.jpg";
+		shell_exec($ex);
+		print "<br> $ex \n";
+	
+		
+	}
+
+	
+}
+if($action=='checkep'){
+	$dt=qdt("select code,episodes,audio from title where status='draft' and subtitle_type='embed' ");
+	while(list($i,$dr)=each($dt)){
+		print "<br>$dr[code] ";
+		
+	}
+}
+if($action=='getep'){
+	$title=qdr("select code,episodes,audio from title where id='$id' ");
+	for($i=1;$i<=$title[episodes];$i++){
+		$q=" insert into episode (title,episode) values ('$id',$i) ";
+		qexe($q);
+	}
+	$q="select episode from episode where title='$id' order by episode ";
+	$eps=qdt($q);
+	//print_r($title);
+	$dir="/data/dex/".$title[code];
+	if(strpos($title[code],'2')){
+		print " this season2 ".$title[code];
+		ep2rename($title[code]);
+	} 
+	mp4rename($dir);
+	$tmpsmil='/data/dex/jpth.smil';
+	if($title[audio]=='jp') $tmpsmil='/data/dex/jp.smil';
+	if($title[audio]=='th') $tmpsmil='/data/dex/th.smil';
+	$smil=file_get_contents($tmpsmil);
+	print "<br>using smil $tmpsmil \n";
+	while(list(,$dr)=each($eps)){
+		$ep=$dr[episode];
+		if(($title[episodes]>99)&&($dr[episode]<100)){
+			$ep='0'.$dr[episode];
+		}
+		$smil_file="$dir/".$title[code]."_".$dr[episode].".smil";
+		$src_th=$title[code]."_".$ep."_480_th.mp4";
+		$src_jp=$title[code]."_".$ep."_480_jp.mp4";
+		$smil1=$smil;
+		$code_ep=$title[code].'_'.$dr[episode];
+		$smil1=str_replace('|code_ep|',$code_ep,$smil1);
+		$smil1=str_replace('|src_jp|',$src_jp,$smil1);
+		$smil1=str_replace('|src_th|',$src_th,$smil1);
+		file_put_contents($smil_file,$smil1);
+		//print "<br>tmpsmil $tmpsmil ep $dr[episode] src_jp $src_jp src_th $src_th smilfile $smil_file \n";
+		//print "<br> gen $smil_file \n";
+	}
+	$q="update title set status='publish',publish_time=now(),logs=concat(now(),' published by $_SESSION[user]\n',logs) where id='$id' ";
+	qexe($q); //print $q;
+	$action='browse';$tb='title';
+	
+}
+
+if($action=='setstatus'){
+	$q="update $tb set status='$status',logs=concat(now(),' $status by $_SESSION[user]\n',logs) where id='$id' ";
+	qexe($q);
+	$action='browse';
+}
+if($action=='ep'){
+	$tt=qdr("select name_en 'title_name',episodes 'eps' from title where id='$title' ");
+	extract($tt);
+	$found=qval("select cound(id) from episode where title='$title' ");
+	if($found<$eps){
+		for($i=1;$i<=$eps;$i++){	
+			$q="insert into episode (title,episode) values ('$title','$i') ";
+			qexe($q);
+		}
+	}
+	//$q="select id,episode,name_en,name_description,status from episode where title='$title' order by episode ";
+	$action='browse';$tb='episode';
+	print "<h3>Title: $title_name</h3><img src=poster/$title.jpg>";
+	
+
+}
+
+if($action=='browse'){
+	$q="select * from $tb order by id desc ";
+	if($tb=='title') $q="select id,code, name_en,episodes,status,publish_time,tags from $tb order by id desc ";
+	if($tb=='episode') $q="select id,episode,name_en,status,url from $tb where title='$title' order by episode ";
+	if($tb=='user') $q="select uuid,type,email,email_verify,fbid,name,mobile from $tb ";
+	if($tb=='user_log') $q.=" limit 100 ";
+	print "<a href=?action=edit&tb=$tb class='btn btn-success'>New $tb</a>";
+	print qbrowse($q,$tb);
+	print "<script>$(document).ready(function(){
+		$('.table').DataTable({pageLength:50,lengthMenu:[50,100,200,500],stateSave:true});
+	});
+	</script>";
+}
+if($action=='banner-upload'){
+}
+if($action=='poster-upload'){
+	//print_r($_FILES);
+	//print "uplaoding ".$_FILES[userfile][tmp_name]." > $_GET[file] ";
+	$rs=move_uploaded_file($_FILES[userfile][tmp_name],$_GET[file]);
+	if($rs) print "$_GET[file] uploaded ";
+	$action='edit';
+}
+if($action=='edit'){
+	if($id) $q="select * from $tb where id='$id' ";
+	else $q="select * from $tb limit 1 ";
+	$dr=qdr($q);
+	$col=1;$cols=2;$allcols=$cols*2;
+	print "<table><form action=?action=update&tb=$tb&id=$id method=post class='form'><tr>";
+	$txtflds=array('description_en','description_th','tags');
+	while(list($fld,$val)=each($dr)){
+		if(in_array($fld,$controlflds)) continue;
+		if(!$id) $val='';
+		$input="<input type=text class='form-control' name=$fld value=\"$val\" size=60>";
+		if(in_array($fld,$txtflds)) $input="<textarea class='form-control' name=$fld cols=60 rows=4>$val</textarea>";
+		if($fld=='status'){
+			$input="<span style=white-space:nowrap;>$val 
+			<a href=?action=setstatus&status=draft&tb=$tb&id=$id class='btn btn-default'>Draft </a>
+			<a href=?action=setstatus&status=publish&tb=$tb&id=$id class='btn btn-success'>Publish </a>
+			<a href=?action=setstatus&status=hold&tb=$tb&id=$id class='btn btn-danger'> Hold </a>
+			</span>";
+		}
+		print "<td>$fld</td><td>$input</td>";
+		if($col==$cols) { print "</tr><tr>"; $col=1;}
+		else {$col++;}
+	}
+	print "</tr><tr><td colspan=$allcols><input class='btn btn-primary pull-right' type=submit value=Save></td></tr></form></table>";
+	if($tb=='titlte'){
+		print "<table><tr><td><h3>Poster</h3><img src=poster/$id.jpg?id=$rnd height=200><form action=?action=poster-upload&tb=$tb&id=$id&file=poster/$id.jpg method=post enctype=multipart/form-data><input type=file name=userfile onchange=this.form.submit(); ><input type=submit value=Upload></form>";
+		print "</td><td><h3>Banner</h3><img src=banner/$id.jpg?id=$rnd height=200><form action=?action=poster-upload&tb=$tb&id=$id&file=banner/$id.jpg method=post enctype=multipart/form-data><input type=file name=userfile onchange=this.form.submit();><input type=submit value=Upload></form></td></tr></table>";
+	}
+
+	if($tb=='episode'){
+		$dir="img/episode/".$dr[title];
+		if(!file_exists($dir)) mkdir($dir);
+		$tfile="img/episode/".$dr[title]."/".$dr[episode].".jpg";
+		print "<table><tr><td><h3>Screenshot</h3><img src=$tfile?$rnd height=200><form action=?action=poster-upload&tb=$tb&id=$id&file=$tfile method=post enctype=multipart/form-data><input type=file name=userfile onchange=this.form.submit(); ><input type=submit value=Upload></form>";
+		$tt=qdr("select * from title where id='$dr[title]'");
+		print $tt[code];
+		$dir=$code;
+		
+	}
+	if($tb=='title') print "<a class='btn btn-danger' href=?action=getep&id=$id> Gen EPs  </a> ";
+	print "<a onclick=\"return confirm('Confirm delete?');\" href=?action=delete&tb=$tb&id=$id> delete </a> ";
+}
+require "util.php";
+?>
+
+
+</div></body>
+</html>
