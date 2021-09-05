@@ -1,13 +1,16 @@
 <?php 
 $dbserver='localhost';
 $dbserver="172.10.1.188";
+if(substr($_SERVER['SERVER_ADDR'],0,7)!='172.10.')$dbserver="203.154.126.188";
+$dbuser=$_ENV['FDBU'];
+$dbpwd=$_ENV['FDBP'];
+$salt=$_ENV['FSLT'];
+$encryptkey=$_ENV['FECK'];
 
 $dbname="flixer_vod";
-$dbuser="flixer_vod";
-$dbpwd="d8GtugTqH8";
 $controlflds=array('id','logs');
-$salt='8638FD63E6CC16872ACDED6CE49E5A270ECDE1B3B938B590E547138BB7F120EA';
-$encryptkey="rsqzn6bp5bzeyvmzhd2y2r6guqxv7e4q";
+
+
 
 $intflds=array('views','users','guest','fb','email','all','balance','bal','hour','premium_views','premium_users','total_views','rental_views');
 $realflds=array('rate','share','total',1,2,3,4,5,6,7,8,9,10,11,12,'premium_amount');
