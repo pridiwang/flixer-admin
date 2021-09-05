@@ -1,0 +1,10 @@
+version: '3.8'
+services: 
+  adminserver:
+    container_name: api-server
+    image: webdevops/php-nginx
+    volumes:
+      - ./www:/app
+    ports:
+      - 8080:80
+      - 8081:443
