@@ -1,4 +1,5 @@
 <?php 
+print_r($_ENV);
 $dbserver='localhost';
 $dbserver="172.10.1.188";
 if(substr($_SERVER['SERVER_ADDR'],0,7)!='172.10.')$dbserver="203.154.126.188";

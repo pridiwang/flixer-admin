@@ -1,6 +1,11 @@
 version: '3.8'
 services: 
   adminserver:
+    env_file: 
+      - .env
+    environment: 
+      - FDBU=${FDBU}
+      - FDBP=${FDBP}
     container_name: api-server
     image: webdevops/php-nginx
     volumes:

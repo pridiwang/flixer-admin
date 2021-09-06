@@ -4,7 +4,7 @@ require "admin-config.php";
 //$db=mysqli_connect($dbserver,$dbuser,$dbpwd,$dbname) or die ('can not connect $dbserver > $dbname ');
 //$db->query('set names utf8');
 
-$db=mysqli_connect($dbserver,$dbuser,$dbpwd,$dbuser) or die ('can not connect $dbserver > $dbuser ');
+$db=mysqli_connect($dbserver,$dbuser,$dbpwd,$dbuser) or die ("can not connect $dbserver > $dbuser ");
 $db->query('set names utf8');
 global $db,$json;
 extract($_GET);
